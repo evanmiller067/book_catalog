@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+    {% if user %}
+    <p>
+        Welcome, {{ user }} |
+        <a href="{{ url_for('my_books') }}">My Books</a> |
+        <a href="{{ url_for('profile', username=user) }}">My Profile</a> |
+        <a href="{{ url_for('logout') }}">Logout</a>
+    </p>
+{% else %}
+    <p><a href="{{ url_for('login') }}">Login</a> | <a href="{{ url_for('register') }}">Register</a></p>
+{% endif %}
+
+    <title>My Books</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <h1>📚 My Books</h1>
+    <p>Welcome, {{ user }} | <a href="{{ url_for('index') }}">All Books</a> | <a href="{{ url_for('logout') }}">Logout</a></p>
+
+    <form id="bookForm">
+        <input type="text" name="query" placeholder="Enter title or ISBN" required>
+        <button type="submit">Add Book</button>
+    </form>
+
+    <div id="result"></div>
+
+    <div class="book-grid">
+        {% for book in books %}
+        <div class="book-card">
+            {% if book.thumbnail %}
+            <img src="{{ book.thumbnail }}" alt="Book cover">
+            {% endif %}
+            <h3>{{ book.title }}</h3>
+            <p><strong>Authors:</strong> {{ book.authors }}</p>
+            <p>{{ book.description[:150] }}...</p>
+        </div>
+        {% else %}
+        <p>You have no books yet. Add one above!</p>
+        {% endfor %}
+    </div>
+
+    <script>
+        document.getElementById('bookForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+
+            const res = await fetch('/add_book', {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await res.json();
+            const resultDiv = document.getElementById('result');
+
+            if (data.error) {
+                resultDiv.innerHTML = `<p style="color:red;">${data.error}</p>`;
+            } else {
+                resultDiv.innerHTML = `
+                <h2>${data.title}</h2>
+                <p><strong>Authors:</strong> ${data.authors.join(', ')}</p>
+                ${data.thumbnail ? `<img src="${data.thumbnail}" alt="Book cover">` : ""}
+                <p>${data.description}</p>
+                <p style="color:green;">Book added successfully! Refresh to see it in your collection.</p>
+                `;
+            }
+        });
+    </script>
+</body>
+</html>

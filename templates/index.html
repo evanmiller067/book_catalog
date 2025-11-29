@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+    {% if user %}
+    <p>
+        Welcome, {{ user }} |
+        <a href="{{ url_for('my_books') }}">My Books</a> |
+        <a href="{{ url_for('profile', username=user) }}">My Profile</a> |
+        <a href="{{ url_for('logout') }}">Logout</a>
+    </p>
+{% else %}
+    <p><a href="{{ url_for('login') }}">Login</a> | <a href="{{ url_for('register') }}">Register</a></p>
+{% endif %}
+
+    <title>All Books</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <h1>📚 All Books</h1>
+    {% if user %}
+        <p>Welcome, {{ user }} | <a href="{{ url_for('my_books') }}">My Books</a> | <a href="{{ url_for('logout') }}">Logout</a></p>
+    {% else %}
+        <p><a href="{{ url_for('login') }}">Login</a> | <a href="{{ url_for('register') }}">Register</a></p>
+    {% endif %}
+
+    <div class="book-grid">
+        {% for book in books %}
+        <div class="book-card">
+            {% if book.thumbnail %}
+            <img src="{{ book.thumbnail }}" alt="Book cover">
+            {% endif %}
+            <h3>{{ book.title }}</h3>
+            <p><strong>Authors:</strong> {{ book.authors }}</p>
+            <p>{{ book.description[:150] }}...</p>
+            <p><em>Owner: {{ book.owner.username }}</em></p>
+        </div>
+        {% else %}
+        <p>No books yet.</p>
+        {% endfor %}
+    </div>
+</body>
+</html>
