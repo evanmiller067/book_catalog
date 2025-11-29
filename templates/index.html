@@ -1,6 +1,12 @@
 <!DOCTYPE html>
 <html>
 <head>
+
+    <title>My Bookshelf: All Books</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <h1>📚My Bookshelf: All Books</h1>
     {% if user %}
     <p>
         Welcome, {{ user }} |
@@ -11,17 +17,6 @@
 {% else %}
     <p><a href="{{ url_for('login') }}">Login</a> | <a href="{{ url_for('register') }}">Register</a></p>
 {% endif %}
-
-    <title>All Books</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-</head>
-<body>
-    <h1>📚 All Books</h1>
-    {% if user %}
-        <p>Welcome, {{ user }} | <a href="{{ url_for('my_books') }}">My Books</a> | <a href="{{ url_for('logout') }}">Logout</a></p>
-    {% else %}
-        <p><a href="{{ url_for('login') }}">Login</a> | <a href="{{ url_for('register') }}">Register</a></p>
-    {% endif %}
 
     <div class="book-grid">
         {% for book in books %}
@@ -35,7 +30,7 @@
             <p><em>Owner: {{ book.owner.username }}</em></p>
         </div>
         {% else %}
-        <p>No books yet.</p>
+        <p>Whoa there partner, this bookshelf is only available to members. Please login or create a free member account using the links above.</p>
         {% endfor %}
     </div>
 </body>

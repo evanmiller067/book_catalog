@@ -1,6 +1,11 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <title>My Books</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <h1>📚 My Books</h1>
     {% if user %}
     <p>
         Welcome, {{ user }} |
@@ -11,13 +16,6 @@
 {% else %}
     <p><a href="{{ url_for('login') }}">Login</a> | <a href="{{ url_for('register') }}">Register</a></p>
 {% endif %}
-
-    <title>My Books</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-</head>
-<body>
-    <h1>📚 My Books</h1>
-    <p>Welcome, {{ user }} | <a href="{{ url_for('index') }}">All Books</a> | <a href="{{ url_for('logout') }}">Logout</a></p>
 
     <form id="bookForm">
         <input type="text" name="query" placeholder="Enter title or ISBN" required>
