@@ -141,9 +141,6 @@ def add_book():
         "thumbnail": new_book.thumbnail
     })
 
-if __name__ == '__main__':
-    app.run(debug=True)
-
 #Profile Page Route
 @app.route('/profile/<username>')
 def profile(username):
@@ -178,3 +175,5 @@ def edit_profile():
 
     return render_template('edit_profile.html', user=session.get('username'), profile_user=current_user)
 
+if __name__ == '__main__':
+    app.run(debug=True)
