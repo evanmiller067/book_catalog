@@ -3,36 +3,74 @@
 <head>
     <title>My Books</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        /* Suggestions dropdown styling */
+        #suggestions {
+            position: absolute;
+            background: #fff;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            max-height: 250px;
+            overflow-y: auto;
+            width: 300px;
+            margin-top: 2px;
+            z-index: 1000;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+        }
+        .suggestion {
+            padding: 8px 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .suggestion img {
+            height: 40px;
+            border-radius: 3px;
+            flex-shrink: 0;
+        }
+        .suggestion:hover {
+            background-color: #f0f0f0;
+        }
+    </style>
 </head>
 <body>
     <h1>📚 My Books</h1>
     {% if user %}
     <p>
         Welcome, {{ user }} |
-        <a href="{{ url_for('my_books') }}">My Books</a> |
         <a href="{{ url_for('profile', username=user) }}">My Profile</a> |
+        <a href="{{ url_for('index') }}">Home Page</a> |
         <a href="{{ url_for('logout') }}">Logout</a>
     </p>
-{% else %}
+    {% else %}
     <p><a href="{{ url_for('login') }}">Login</a> | <a href="{{ url_for('register') }}">Register</a></p>
-{% endif %}
+    {% endif %}
 
-    <form id="bookForm">
-        <input type="text" name="query" placeholder="Enter title or ISBN" required>
-        <button type="submit">Add Book</button>
-    </form>
+    <!-- Search bar with suggestions -->
+    <div style="position: relative; display: inline-block; width: 300px;">
+        <form id="bookForm">
+            <input type="text" id="bookQuery" name="query" placeholder="Enter title or ISBN" required>
+            <button type="submit">Search</button>
+        </form>
+        <div id="suggestions"></div>
+    </div>
+    <button id="addSelectedBtn" style="display:none;">Add Selected Books</button>
 
-    <div id="result"></div>
+    <div id="suggestions"></div><a id="viewMoreBtn" href="#" style="display:none;">View More Results</a>
 
+    <!-- User's book collection -->
     <div class="book-grid">
         {% for book in books %}
-        <div class="book-card">
+        <div class="book-card" id="book-{{ book.id }}">
             {% if book.thumbnail %}
             <img src="{{ book.thumbnail }}" alt="Book cover">
             {% endif %}
             <h3>{{ book.title }}</h3>
             <p><strong>Authors:</strong> {{ book.authors }}</p>
             <p>{{ book.description[:150] }}...</p>
+            <form action="{{ url_for('delete_book', book_id=book.id) }}" method="POST" onsubmit="return confirmDelete()">
+                <button type="submit">Remove</button>
+            </form>
         </div>
         {% else %}
         <p>You have no books yet. Add one above!</p>
@@ -40,30 +78,127 @@
     </div>
 
     <script>
+        const queryInput = document.getElementById('bookQuery');
+        const suggestionsDiv = document.getElementById('suggestions');
+        const addSelectedBtn = document.getElementById('addSelectedBtn');
+
+        // Search form submit → fetch multiple results
         document.getElementById('bookForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             const formData = new FormData(this);
 
-            const res = await fetch('/add_book', {
+            const res = await fetch('/add_books', {
                 method: 'POST',
                 body: formData
             });
-
             const data = await res.json();
-            const resultDiv = document.getElementById('result');
 
             if (data.error) {
-                resultDiv.innerHTML = `<p style="color:red;">${data.error}</p>`;
+                suggestionsDiv.innerHTML = `<p style="color:red;">${data.error}</p>`;
+                addSelectedBtn.style.display = "none";
             } else {
-                resultDiv.innerHTML = `
-                <h2>${data.title}</h2>
-                <p><strong>Authors:</strong> ${data.authors.join(', ')}</p>
-                ${data.thumbnail ? `<img src="${data.thumbnail}" alt="Book cover">` : ""}
-                <p>${data.description}</p>
-                <p style="color:green;">Book added successfully! Refresh to see it in your collection.</p>
+                suggestionsDiv.innerHTML = data.map(book => `
+                    <div class="suggestion">
+                        <input type="checkbox" class="book-checkbox" value="${book.google_id}">
+                        ${book.thumbnail ? `<img src="${book.thumbnail}">` : ""}
+                        <strong>${book.title}</strong> - ${book.authors.join(', ')}
+                    </div>
+                `).join("");
+                addSelectedBtn.style.display = "inline-block";
+            }
+        });
+
+        // Add all selected books
+        addSelectedBtn.addEventListener('click', async function() {
+            const selected = Array.from(document.querySelectorAll('.book-checkbox:checked'))
+                                  .map(cb => cb.value);
+
+            if (selected.length === 0) {
+                alert("No books selected!");
+                return;
+            }
+
+            const res = await fetch('/add_books_by_ids', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ google_ids: selected })
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                alert(`${data.books.length} books added successfully!`);
+                const bookGrid = document.querySelector('.book-grid');
+                data.books.forEach(book => {
+                    bookGrid.innerHTML += `
+                        <div class="book-card">
+                            ${book.thumbnail ? `<img src="${book.thumbnail}" alt="Book cover">` : ""}
+                            <h3>${book.title}</h3>
+                            <p><strong>Authors:</strong> ${book.authors.join(', ')}</p>
+                            <p>${book.description.substring(0,150)}...</p>
+                        </div>
+                    `;
+                });
+                suggestionsDiv.innerHTML = "";
+                addSelectedBtn.style.display = "none";
+                queryInput.value = "";
+            } else {
+                alert(data.error || "Failed to add books");
+            }
+        });
+
+        // Confirmation before delete
+        function confirmDelete() {
+            return confirm("Are you sure you want to remove this book?");
+        }
+
+queryInput.addEventListener('input', async function() {
+    const q = this.value.trim();
+    if (q.length < 3) {
+        suggestionsDiv.innerHTML = "";
+        document.getElementById('viewMoreBtn').style.display = "none";
+        return;
+    }
+
+    const res = await fetch(`/search_books?q=${encodeURIComponent(q)}`);
+    const data = await res.json();
+
+    suggestionsDiv.innerHTML = data.map(book => `
+        <div class="suggestion" onclick="addBook('${book.google_id}')">
+            ${book.thumbnail ? `<img src="${book.thumbnail}" style="height:50px;">` : ""}
+            <strong>${book.title}</strong> - ${book.authors}
+        </div>
+    `).join("");
+
+    // Show "View More Results" button
+    const viewMoreBtn = document.getElementById('viewMoreBtn');
+    viewMoreBtn.href = `/search_results?q=${encodeURIComponent(q)}`;
+    viewMoreBtn.style.display = "inline-block";
+});
+window.addEventListener("storage", function(event) {
+    if (event.key === "addedBooks") {
+        const newBooks = JSON.parse(event.newValue || "[]");
+        const myBooksGrid = document.getElementById("myBooksGrid");
+
+        newBooks.forEach(book => {
+            if (!document.getElementById(`book-${book.book_id}`)) {
+                myBooksGrid.innerHTML += `
+                    <div class="book-card" id="book-${book.book_id}">
+                        ${book.thumbnail ? `<img src="${book.thumbnail}" alt="Book cover">` : ""}
+                        <h3>${book.title}</h3>
+                        <p><strong>Authors:</strong> ${book.authors.join(', ')}</p>
+                        <p>${book.description.substring(0,150)}...</p>
+                        <form action="/delete_book/${book.book_id}" method="POST" onsubmit="return confirmDelete()">
+                            <button type="submit">Remove</button>
+                        </form>
+                    </div>
                 `;
             }
         });
+
+        // Clear after syncing
+        localStorage.removeItem("addedBooks");
+    }
+});
     </script>
 </body>
 </html>

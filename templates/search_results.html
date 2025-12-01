@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Search Results</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .book-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 16px;
+        }
+        .book-card {
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            padding: 10px;
+            cursor: pointer;
+            transition: background 0.2s;
+            position: relative;
+        }
+        .book-card:hover {
+            background: #f9f9f9;
+        }
+        .book-card img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 4px;
+        }
+        .book-card.added {
+            background-color: #e6ffe6;
+            border: 2px solid #4CAF50;
+            opacity: 0.8;
+        }
+        .book-card.added::after {
+            content: "✅ Added";
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            font-size: 0.9em;
+            color: #4CAF50;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔎 Search Results for "{{ query }}"</h1>
+    <a href="{{ url_for('my_books') }}">⬅ Back to My Books</a>
+
+    <div class="book-grid">
+        {% for book in books %}
+        <div class="book-card {% if book.already_added %}added{% endif %}" 
+             id="book-{{ book.google_id }}" 
+             {% if not book.already_added %}onclick="addBook('{{ book.google_id }}')" {% endif %}>
+            {% if book.thumbnail %}
+            <img src="{{ book.thumbnail }}" alt="Book cover">
+            {% endif %}
+            <h3>{{ book.title }}</h3>
+            <p><strong>Authors:</strong> {{ book.authors }}</p>
+            <p>{{ book.description[:250] }}...</p>
+        </div>
+        {% else %}
+        <p>No results found.</p>
+        {% endfor %}
+    </div>
+
+    <script>
+    async function addBook(googleId) {
+        const res = await fetch('/add_book_by_id', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ google_id: googleId })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            const card = document.getElementById(`book-${googleId}`);
+            card.classList.add("added");
+            card.onclick = null;
+
+            // --- Sync back to My Books page ---
+            if (window.opener && !window.opener.closed) {
+                const myBooksGrid = window.opener.document.getElementById("myBooksGrid");
+                if (myBooksGrid) {
+                    myBooksGrid.innerHTML += `
+                        <div class="book-card" id="book-${data.book_id}">
+                            ${data.thumbnail ? `<img src="${data.thumbnail}" alt="Book cover">` : ""}
+                            <h3>${data.title}</h3>
+                            <p><strong>Authors:</strong> ${data.authors.join(', ')}</p>
+                            <p>${data.description.substring(0,150)}...</p>
+                            <form action="/delete_book/${data.book_id}" method="POST" onsubmit="return window.opener.confirmDelete()">
+                                <button type="submit">Remove</button>
+                            </form>
+                        </div>
+                    `;
+                }
+            } else {
+                // Fallback: store in localStorage if opened directly
+                let addedBooks = JSON.parse(localStorage.getItem("addedBooks") || "[]");
+                addedBooks.push(data);
+                localStorage.setItem("addedBooks", JSON.stringify(addedBooks));
+            }
+        } else {
+            alert(data.error || "Failed to add book");
+        }
+    }
+    </script>
+</body>
+</html>

@@ -16,6 +16,7 @@
     </p>
 {% else %}
     <p><a href="{{ url_for('login') }}">Login</a> | <a href="{{ url_for('register') }}">Register</a></p>
+    <p>If you'd like to add books to the bookshelf, please login or sign up for a free account!</p>
 {% endif %}
 
     <div class="book-grid">
@@ -30,7 +31,7 @@
             <p><em>Owner: {{ book.owner.username }}</em></p>
         </div>
         {% else %}
-        <p>Whoa there partner, this bookshelf is only available to members. Please login or create a free member account using the links above.</p>
+        <p>Warning! There are no books on the shelf!</p>
         {% endfor %}
     </div>
 </body>

@@ -63,3 +63,60 @@ textarea {
     padding: 8px;
     font-family: Arial, sans-serif;
 }
+
+/* Suggestions dropdown */
+#suggestions {
+    position: absolute;          /* float under input */
+    background: #fff;            /* white background */
+    border: 1px solid #ccc;      /* subtle border */
+    border-radius: 4px;          /* rounded corners */
+    max-height: 250px;           /* scroll if too tall */
+    overflow-y: auto;
+    width: 300px;                /* match input width */
+    margin-top: 2px;             /* small gap below input */
+    z-index: 1000;               /* stay above other elements */
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15); /* soft shadow */
+}
+
+/* Each suggestion item */
+.suggestion {
+    padding: 8px 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px; /* space between image and text */
+}
+
+/* Thumbnail images */
+.suggestion img {
+    border-radius: 3px;
+    flex-shrink: 0;
+}
+
+/* Hover effect */
+.suggestion:hover {
+    background-color: #f0f0f0;
+}
+
+/* Input styling */
+#bookQuery {
+    width: 100%;
+    padding: 8px;
+    box-sizing: border-box;
+}
+.book-card.added {
+    background-color: #e6ffe6;   /* light green background */
+    border: 2px solid #4CAF50;   /* green border */
+    opacity: 0.8;                /* slightly faded */
+    position: relative;
+}
+
+.book-card.added::after {
+    content: "✅ Added";
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    font-size: 0.9em;
+    color: #4CAF50;
+    font-weight: bold;
+}

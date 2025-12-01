@@ -103,9 +103,68 @@ def my_books():
     books = Book.query.filter_by(user_id=session['user_id']).all()
     return render_template('my_books.html', books=books, user=session['username'])
 
-# Add book to user's collection
-@app.route('/add_book', methods=['POST'])
-def add_book():
+# New Search/add book route
+@app.route('/search_books')
+def search_books():
+    query = request.args.get('q')
+    if not query:
+        return jsonify([])
+
+    url = f"https://www.googleapis.com/books/v1/volumes?q={query}"
+    r = requests.get(url)
+    data = r.json()
+
+    results = []
+    if "items" in data:
+        for item in data["items"][:5]:
+            info = item["volumeInfo"]
+            results.append({
+                "google_id": item["id"],  # unique identifier
+                "title": info.get("title"),
+                "authors": ", ".join(info.get("authors", [])),
+                "thumbnail": info.get("imageLinks", {}).get("thumbnail", ""),
+                "description": info.get("description", "No description available.")
+            })
+
+    return jsonify(results)
+
+# New Search/add book ID route
+@app.route('/add_book_by_id', methods=['POST'])
+def add_book_by_id():
+    if 'user_id' not in session:
+        return jsonify({"error": "Login required"}), 403
+
+    google_id = request.json.get('google_id')
+    if not google_id:
+        return jsonify({"error": "No book ID provided"}), 400
+
+    url = f"https://www.googleapis.com/books/v1/volumes/{google_id}"
+    r = requests.get(url)
+    data = r.json()
+    info = data.get("volumeInfo", {})
+
+    new_book = Book(
+        title=info.get("title"),
+        authors=", ".join(info.get("authors", [])),
+        description=info.get("description", "No description available."),
+        thumbnail=info.get("imageLinks", {}).get("thumbnail", ""),
+        user_id=session['user_id']
+    )
+    db.session.add(new_book)
+    db.session.commit()
+
+    return jsonify({
+        "success": True,
+        "title": new_book.title,
+        "authors": new_book.authors.split(", "),
+        "thumbnail": new_book.thumbnail,
+        "description": new_book.description,
+        "book_id": new_book.id
+    })
+
+# Allow multiple books to be added
+@app.route('/add_books', methods=['POST'])
+def add_books():
     if 'user_id' not in session:
         return jsonify({"error": "Login required"}), 403
 
@@ -113,7 +172,6 @@ def add_book():
     if not query:
         return jsonify({"error": "No query provided"}), 400
 
-    # Google Books API request
     url = f"https://www.googleapis.com/books/v1/volumes?q={query}"
     r = requests.get(url)
     data = r.json()
@@ -121,25 +179,106 @@ def add_book():
     if "items" not in data:
         return jsonify({"error": "No books found"}), 404
 
-    book_info = data["items"][0]["volumeInfo"]
+    results = []
+    for item in data["items"][:10]:  # limit to 10 results
+        info = item["volumeInfo"]
+        results.append({
+            "google_id": item["id"],
+            "title": info.get("title"),
+            "authors": info.get("authors", []),
+            "description": info.get("description", "No description available."),
+            "thumbnail": info.get("imageLinks", {}).get("thumbnail", "")
+        })
 
-    # Create and save book linked to current user
-    new_book = Book(
-        title=book_info.get("title"),
-        authors=", ".join(book_info.get("authors", [])),
-        description=book_info.get("description", "No description available."),
-        thumbnail=book_info.get("imageLinks", {}).get("thumbnail", ""),
-        user_id=session['user_id']
-    )
-    db.session.add(new_book)
+    return jsonify(results)
+
+@app.route('/add_books_by_ids', methods=['POST'])
+def add_books_by_ids():
+    if 'user_id' not in session:
+        return jsonify({"error": "Login required"}), 403
+
+    ids = request.json.get('google_ids', [])
+    if not ids:
+        return jsonify({"error": "No book IDs provided"}), 400
+
+    added_books = []
+    for google_id in ids:
+        url = f"https://www.googleapis.com/books/v1/volumes/{google_id}"
+        r = requests.get(url)
+        data = r.json()
+        info = data.get("volumeInfo", {})
+
+        new_book = Book(
+            title=info.get("title"),
+            authors=", ".join(info.get("authors", [])),
+            description=info.get("description", "No description available."),
+            thumbnail=info.get("imageLinks", {}).get("thumbnail", ""),
+            user_id=session['user_id']
+        )
+        db.session.add(new_book)
+        added_books.append({
+            "title": new_book.title,
+            "authors": new_book.authors.split(", "),
+            "thumbnail": new_book.thumbnail,
+            "description": new_book.description
+        })
+
+    db.session.commit()
+    return jsonify({"success": True, "books": added_books})
+
+# Open search results in new page 
+@app.route('/search_results')
+def search_results():
+    query = request.args.get('q')
+    if not query:
+        return "No query provided", 400
+
+    url = f"https://www.googleapis.com/books/v1/volumes?q={query}&maxResults=25"
+    r = requests.get(url)
+    data = r.json()
+
+    # Get all Google IDs already in the user's collection
+    user_books = Book.query.filter_by(user_id=session['user_id']).all()
+    user_google_ids = {b.google_id for b in user_books if hasattr(b, "google_id")}
+
+    books = []
+    if "items" in data:
+        for item in data["items"]:
+            info = item["volumeInfo"]
+            google_id = item["id"]
+            books.append({
+                "google_id": google_id,
+                "title": info.get("title"),
+                "authors": ", ".join(info.get("authors", [])),
+                "description": info.get("description", "No description available."),
+                "thumbnail": info.get("imageLinks", {}).get("thumbnail", ""),
+                "already_added": google_id in user_google_ids
+            })
+
+    return render_template("search_results.html", books=books, query=query)
+
+# Remove book from user's collection
+@app.route('/delete_book/<int:book_id>', methods=['POST'])
+def delete_book(book_id):
+    if 'user_id' not in session:
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify({"error": "Login required"}), 403
+        return redirect(url_for('login'))
+
+    book = Book.query.get_or_404(book_id)
+
+    if book.user_id != session['user_id']:
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify({"error": "Unauthorized"}), 403
+        return redirect(url_for('my_books'))
+
+    db.session.delete(book)
     db.session.commit()
 
-    return jsonify({
-        "title": new_book.title,
-        "authors": new_book.authors.split(", "),
-        "description": new_book.description,
-        "thumbnail": new_book.thumbnail
-    })
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return jsonify({"success": True, "book_id": book.id})
+    else:
+        return redirect(url_for('my_books'))
 
 #Profile Page Route
 @app.route('/profile/<username>')

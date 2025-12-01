@@ -10,7 +10,11 @@
     <p><strong>Bio:</strong> {{ profile_user.bio }}</p>
 
     {% if user == profile_user.username %}
-        <p><a href="{{ url_for('edit_profile') }}">Edit Profile</a></p>
+        <p><a href="{{ url_for('edit_profile') }}">Edit Profile</a> | 
+        <a href="{{ url_for('my_books') }}">My Books</a> |
+        <a href="{{ url_for('index', username=user) }}">Home Page</a> |
+        <a href="{{ url_for('logout') }}">Logout</a>
+        </p>
     {% endif %}
 
     <h2>{{ profile_user.username }}'s Books</h2>
@@ -22,6 +26,11 @@
             {% endif %}
             <h3>{{ book.title }}</h3>
             <p><strong>Authors:</strong> {{ book.authors }}</p>
+            
+            <form action="{{ url_for('delete_book', book_id=book.id) }}" method="POST">
+            <button type="submit">Remove</button>
+            </form>
+
         </div>
         {% else %}
         <p>No books yet.</p>
